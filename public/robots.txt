@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /panier
+Disallow: /commande
+
+Sitemap: https://universalboutique.sn/sitemap.xml
