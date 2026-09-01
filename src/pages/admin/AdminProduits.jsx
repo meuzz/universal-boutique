@@ -12,7 +12,7 @@ const PRODUIT_VIDE = {
   prix_promo: "",
   stock: "",
   categorie_id: "",
-  photos: "",
+  photos: [],
   est_nouveau: false,
   est_populaire: false,
   est_promo: false,
@@ -36,6 +36,7 @@ export default function AdminProduits() {
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState(null);
   const [enregistrement, setEnregistrement] = useState(false);
+  const [envoiPhotoEnCours, setEnvoiPhotoEnCours] = useState(false);
 
   async function chargerDonnees() {
     setChargement(true);
@@ -60,22 +61,71 @@ export default function AdminProduits() {
   function ouvrirModification(produit) {
     setFormulaire({
       ...produit,
-      photos: (produit.photos || []).join(", "),
+      photos: produit.photos || [],
       prix_promo: produit.prix_promo || "",
       categorie_id: produit.categorie_id || "",
     });
     setFormulaireOuvert(true);
   }
 
+  // Envoie une ou plusieurs photos choisies vers Supabase Storage
+  // et ajoute leurs liens (URLs) au produit en cours d'édition.
+  async function envoyerPhotos(fichiers) {
+    if (!fichiers || fichiers.length === 0) return;
+    setErreur(null);
+    setEnvoiPhotoEnCours(true);
+
+    const nouvellesUrls = [];
+
+    for (const fichier of fichiers) {
+      const extension = fichier.name.split(".").pop();
+      const nomFichier = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+      const chemin = `produits/${nomFichier}`;
+
+      const { error: erreurEnvoi } = await supabase.storage
+        .from("photos-produits")
+        .upload(chemin, fichier);
+
+      if (erreurEnvoi) {
+        setErreur("Erreur lors de l'envoi d'une photo : " + erreurEnvoi.message);
+        continue;
+      }
+
+      const { data: urlPublique } = supabase.storage
+        .from("photos-produits")
+        .getPublicUrl(chemin);
+
+      nouvellesUrls.push(urlPublique.publicUrl);
+    }
+
+    setFormulaire((f) => ({ ...f, photos: [...f.photos, ...nouvellesUrls] }));
+    setEnvoiPhotoEnCours(false);
+  }
+
+  // Retire une photo de la liste (et la supprime aussi du Storage).
+  async function retirerPhoto(url) {
+    setFormulaire((f) => ({ ...f, photos: f.photos.filter((p) => p !== url) }));
+
+    // On essaie de supprimer le fichier réel dans Supabase Storage.
+    // On retrouve son chemin à partir de la fin de l'URL publique.
+    try {
+      const chemin = url.split("/photos-produits/")[1];
+      if (chemin) {
+        await supabase.storage.from("photos-produits").remove([chemin]);
+      }
+    } catch {
+      // Si la suppression échoue, ce n'est pas bloquant : la photo
+      // ne sera de toute façon plus liée au produit.
+    }
+  }
+
   async function enregistrerProduit(e) {
     e.preventDefault();
     setErreur(null);
-
     if (!formulaire.nom.trim() || !formulaire.prix) {
       setErreur("Le nom et le prix sont obligatoires.");
       return;
     }
-
     setEnregistrement(true);
 
     const donnees = {
@@ -87,9 +137,7 @@ export default function AdminProduits() {
       prix_promo: formulaire.prix_promo ? Number(formulaire.prix_promo) : null,
       stock: formulaire.stock ? Number(formulaire.stock) : 0,
       categorie_id: formulaire.categorie_id || null,
-      photos: formulaire.photos
-        ? formulaire.photos.split(",").map((p) => p.trim()).filter(Boolean)
-        : [],
+      photos: formulaire.photos,
       est_nouveau: formulaire.est_nouveau,
       est_populaire: formulaire.est_populaire,
       est_promo: formulaire.est_promo,
@@ -104,7 +152,6 @@ export default function AdminProduits() {
     }
 
     setEnregistrement(false);
-
     if (resultat.error) {
       setErreur("Erreur : " + resultat.error.message);
     } else {
@@ -212,15 +259,42 @@ export default function AdminProduits() {
             </div>
           </div>
 
+          {/* Nouvelle zone photos : vrai upload vers Supabase Storage */}
           <div>
-            <label className="block text-sm font-medium mb-1">Photos (liens séparés par une virgule)</label>
+            <label className="block text-sm font-medium mb-1">Photos du produit</label>
+
+            {formulaire.photos.length > 0 && (
+              <div className="flex flex-wrap gap-3 mb-3">
+                {formulaire.photos.map((url) => (
+                  <div key={url} className="relative">
+                    <img
+                      src={url}
+                      alt="Photo du produit"
+                      className="w-20 h-20 object-cover rounded-md border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => retirerPhoto(url)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center"
+                      title="Retirer cette photo"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <input
-              type="text"
-              value={formulaire.photos}
-              onChange={(e) => setFormulaire({ ...formulaire, photos: e.target.value })}
-              placeholder="https://... , https://..."
+              type="file"
+              accept="image/png, image/jpeg, image/webp"
+              multiple
+              onChange={(e) => envoyerPhotos(Array.from(e.target.files))}
               className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
             />
+            {envoiPhotoEnCours && (
+              <p className="text-xs text-gray-500 mt-1">Envoi de la photo en cours...</p>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-4">
@@ -263,7 +337,7 @@ export default function AdminProduits() {
           <div className="flex gap-3">
             <button
               type="submit"
-              disabled={enregistrement}
+              disabled={enregistrement || envoiPhotoEnCours}
               className="bg-primary text-white px-5 py-2 rounded-md text-sm font-medium disabled:opacity-50"
             >
               {enregistrement ? "Enregistrement..." : "Enregistrer"}
@@ -290,12 +364,21 @@ export default function AdminProduits() {
               key={p.id}
               className="flex items-center justify-between bg-white border border-gray-100 rounded-xl p-4"
             >
-              <div>
-                <p className="font-medium text-sm">{p.nom}</p>
-                <p className="text-xs text-gray-500">
-                  {p.categories?.nom || "Sans catégorie"} · {p.prix.toLocaleString()} FCFA · Stock : {p.stock}
-                  {!p.actif && <span className="text-red-500"> · Masqué</span>}
-                </p>
+              <div className="flex items-center gap-3">
+                {p.photos?.[0] && (
+                  <img
+                    src={p.photos[0]}
+                    alt={p.nom}
+                    className="w-12 h-12 object-cover rounded-md border border-gray-200"
+                  />
+                )}
+                <div>
+                  <p className="font-medium text-sm">{p.nom}</p>
+                  <p className="text-xs text-gray-500">
+                    {p.categories?.nom || "Sans catégorie"} · {p.prix.toLocaleString()} FCFA · Stock : {p.stock}
+                    {!p.actif && <span className="text-red-500"> · Masqué</span>}
+                  </p>
+                </div>
               </div>
               <div className="flex gap-3">
                 <button onClick={() => ouvrirModification(p)} className="text-sm text-primary">
