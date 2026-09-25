@@ -10,8 +10,8 @@ export default function Catalogue() {
   const tri = searchParams.get("tri") || "recent";
 
   useSEO({
-    titre: categorieSlug ? `Catalogue — ${categorieSlug.replace(/-/g, " ")}` : "Catalogue",
-    description: "Découvrez tous les produits Universal Boutique : électronique, maison, mode, auto, moto, beauté, solaire et plus, livrés au Sénégal.",
+    titre: categorieSlug ? `Catalogue â€” ${categorieSlug.replace(/-/g, " ")}` : "Catalogue",
+    description: "DÃ©couvrez tous les produits Universal Boutique : Ã©lectronique, maison, mode, auto, moto, beautÃ©, solaire et plus, livrÃ©s au SÃ©nÃ©gal.",
   });
 
   const [categories, setCategories] = useState([]);
@@ -23,7 +23,7 @@ export default function Catalogue() {
     async function chargerCategories() {
       const { data } = await supabase
         .from("categories")
-        .select("nom, slug, ordre")
+        .select("id, nom, slug, ordre")
         .order("ordre", { ascending: true });
       if (data) setCategories(data);
     }
@@ -72,7 +72,7 @@ export default function Catalogue() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-heading font-medium mb-6">
-        Catalogue{q ? ` — résultats pour "${q}"` : ""}
+        Catalogue{q ? ` â€” rÃ©sultats pour "${q}"` : ""}
       </h1>
 
       <div className="flex flex-wrap gap-3 mb-8">
@@ -81,7 +81,7 @@ export default function Catalogue() {
           onChange={(e) => mettreAJourFiltre("categorie", e.target.value)}
           className="border border-gray-200 rounded-md px-3 py-2 text-sm"
         >
-          <option value="">Toutes les catégories</option>
+          <option value="">Toutes les catÃ©gories</option>
           {categories.map((c) => (
             <option key={c.slug} value={c.slug}>{c.nom}</option>
           ))}
@@ -92,9 +92,9 @@ export default function Catalogue() {
           onChange={(e) => mettreAJourFiltre("tri", e.target.value)}
           className="border border-gray-200 rounded-md px-3 py-2 text-sm"
         >
-          <option value="recent">Nouveautés d'abord</option>
+          <option value="recent">NouveautÃ©s d'abord</option>
           <option value="prix_asc">Prix croissant</option>
-          <option value="prix_desc">Prix décroissant</option>
+          <option value="prix_desc">Prix dÃ©croissant</option>
         </select>
 
         {(q || categorieSlug) && (
@@ -102,7 +102,7 @@ export default function Catalogue() {
             onClick={() => setSearchParams({})}
             className="text-sm text-gray-500 underline"
           >
-            Réinitialiser les filtres
+            RÃ©initialiser les filtres
           </button>
         )}
       </div>
@@ -121,50 +121,62 @@ export default function Catalogue() {
         <div className="text-center py-16 border border-dashed border-gray-200 rounded-xl">
           <p className="text-gray-500 mb-1">Aucun produit ne correspond pour le moment.</p>
           <p className="text-sm text-gray-400">
-            Les produits ajoutés depuis l'administration apparaîtront automatiquement ici.
+            Les produits ajoutÃ©s depuis l'administration apparaÃ®tront automatiquement ici.
           </p>
         </div>
       )}
 
       {!chargement && !erreur && produits.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-          {produits.map((p) => (
-            <Link
-              key={p.id}
-              to={`/produit/${p.slug}`}
-              className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition"
-            >
-              <div className="bg-gray-50 h-32 flex items-center justify-center text-3xl relative">
-                🛍️
-                {p.est_nouveau && (
-                  <span className="absolute top-2 left-2 bg-primary text-white text-xs px-2 py-0.5 rounded">
-                    Nouveau
-                  </span>
-                )}
-                {p.est_promo && (
-                  <span className="absolute top-2 right-2 bg-success text-white text-xs px-2 py-0.5 rounded">
-                    Promo
-                  </span>
-                )}
-                {p.stock === 0 && (
-                  <span className="absolute bottom-2 left-2 bg-gray-500 text-white text-xs px-2 py-0.5 rounded">
-                    Rupture de stock
-                  </span>
-                )}
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-medium text-gray-700 truncate">{p.nom}</p>
-                {p.prix_promo ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-primary font-medium text-sm">{p.prix_promo.toLocaleString()} FCFA</span>
-                    <span className="text-gray-400 text-xs line-through">{p.prix.toLocaleString()} FCFA</span>
-                  </div>
-                ) : (
-                  <p className="text-primary font-medium text-sm mt-1">{p.prix.toLocaleString()} FCFA</p>
-                )}
-              </div>
-            </Link>
-          ))}
+          {produits.map((p) => {
+            const photo = Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : null;
+            return (
+              <Link
+                key={p.id}
+                to={`/produit/${p.slug}`}
+                className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition"
+              >
+                <div className="bg-gray-50 h-40 flex items-center justify-center text-3xl relative">
+                  {photo ? (
+                    <img
+                      src={photo}
+                      alt={p.nom}
+                      loading="lazy"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  ) : (
+                    <span>ðŸ›ï¸</span>
+                  )}
+                  {p.est_nouveau && (
+                    <span className="absolute top-2 left-2 bg-primary text-white text-xs px-2 py-0.5 rounded">
+                      Nouveau
+                    </span>
+                  )}
+                  {p.est_promo && (
+                    <span className="absolute top-2 right-2 bg-success text-white text-xs px-2 py-0.5 rounded">
+                      Promo
+                    </span>
+                  )}
+                  {p.stock === 0 && (
+                    <span className="absolute bottom-2 left-2 bg-gray-500 text-white text-xs px-2 py-0.5 rounded">
+                      Rupture de stock
+                    </span>
+                  )}
+                </div>
+                <div className="p-3">
+                  <p className="text-sm font-medium text-gray-700 truncate">{p.nom}</p>
+                  {p.prix_promo ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-primary font-medium text-sm">{p.prix_promo.toLocaleString()} FCFA</span>
+                      <span className="text-gray-400 text-xs line-through">{p.prix.toLocaleString()} FCFA</span>
+                    </div>
+                  ) : (
+                    <p className="text-primary font-medium text-sm mt-1">{p.prix.toLocaleString()} FCFA</p>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
