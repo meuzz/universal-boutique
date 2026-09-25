@@ -5,16 +5,20 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#1A1A1A",
-          light: "#3D3D3D",
-          dark: "#0D0D0D",
+          DEFAULT: "#262E3A",
+          light: "#3A4656",
+          dark: "#1A212B",
         },
         accent: {
-          DEFAULT: "#EA580C",
-          dark: "#C2410C",
-          light: "#FDBA74",
+          DEFAULT: "#1976D2",
+          dark: "#1565C0",
+          light: "#90CAF9",
         },
-        success: "#16A34A",
+        soleil: {
+          DEFAULT: "#F6B92E",
+          dark: "#C98A0B",
+        },
+        success: "#4E9A2A",
       },
       fontFamily: {
         heading: ["Poppins", "sans-serif"],
