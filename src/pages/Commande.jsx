@@ -4,13 +4,26 @@ import { supabase } from "../lib/supabaseClient.js";
 
 const NUMERO_WHATSAPP = "221772323309";
 
+// Genere un identifiant unique cote navigateur.
+// Ainsi, on n'a pas besoin de relire la table clients (qui reste protegee).
+function nouvelId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function Commande() {
   const [panier, setPanier] = useState([]);
   const [nom, setNom] = useState("");
   const [telephone, setTelephone] = useState("");
   const [adresse, setAdresse] = useState("");
   const [ville, setVille] = useState("");
-  const [modeLivraison, setModeLivraison] = useState("Livraison à domicile");
+  const [modeLivraison, setModeLivraison] = useState("Livraison \u00e0 domicile");
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
   const navigate = useNavigate();
@@ -34,40 +47,39 @@ export default function Commande() {
     setEnvoiEnCours(true);
 
     try {
-      // 1. Récupérer le Sénégal comme pays par défaut
+      // 1. R\u00e9cup\u00e9rer le S\u00e9n\u00e9gal comme pays par d\u00e9faut
       const { data: pays } = await supabase
         .from("pays")
         .select("id")
         .eq("code", "SN")
         .single();
 
-      // 2. Créer le client
-      const { data: client, error: erreurClient } = await supabase
+      // 2. Cr\u00e9er le client (sans relire la table : les donn\u00e9es clients restent priv\u00e9es)
+      const clientId = nouvelId();
+      const { error: erreurClient } = await supabase
         .from("clients")
-        .insert({ nom, telephone, adresse, ville, pays_id: pays?.id })
-        .select()
-        .single();
+        .insert({ id: clientId, nom, telephone, adresse, ville, pays_id: pays?.id });
 
       if (erreurClient) throw erreurClient;
 
-      // 3. Créer la commande
-      const { data: commande, error: erreurCommande } = await supabase
+      // 3. Cr\u00e9er la commande
+      const commandeId = nouvelId();
+      const { error: erreurCommande } = await supabase
         .from("commandes")
         .insert({
-          client_id: client.id,
+          id: commandeId,
+          client_id: clientId,
           statut: "nouvelle",
           mode_livraison: modeLivraison,
           total,
           pays_id: pays?.id,
-        })
-        .select()
-        .single();
+        });
 
       if (erreurCommande) throw erreurCommande;
 
-      // 4. Ajouter le détail des produits commandés
+      // 4. Ajouter le d\u00e9tail des produits command\u00e9s
       const lignesCommande = panier.map((item) => ({
-        commande_id: commande.id,
+        commande_id: commandeId,
         produit_id: item.id,
         quantite: item.quantite,
         prix_unitaire: item.prix,
@@ -90,13 +102,20 @@ export default function Commande() {
       const texte =
         `Nouvelle commande Universal Boutique\n\n` +
         `Client : ${nom}\n` +
-        `Téléphone : ${telephone}\n` +
+        `T\u00e9l\u00e9phone : ${telephone}\n` +
         `Adresse : ${adresse}, ${ville}\n` +
         `Livraison : ${modeLivraison}\n\n` +
         `Produits :\n${detailProduits}\n\n` +
         `Total : ${total.toLocaleString()} FCFA`;
 
-      window.open(`https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent(texte)}`, "_blank");
+      const lienWhatsApp = `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent(texte)}`;
+      const fenetre = window.open(lienWhatsApp, "_blank");
+
+      // Si le t\u00e9l\u00e9phone bloque l'ouverture d'un nouvel onglet, on ouvre WhatsApp directement
+      if (!fenetre) {
+        window.location.href = lienWhatsApp;
+        return;
+      }
 
       // 7. Rediriger vers la confirmation
       navigate("/confirmation");
@@ -124,7 +143,7 @@ export default function Commande() {
       <h1 className="text-2xl font-heading font-medium mb-6">Finaliser la commande</h1>
 
       <div className="bg-gray-50 rounded-xl p-4 mb-6">
-        <p className="font-medium text-sm mb-2">Récapitulatif</p>
+        <p className="font-medium text-sm mb-2">R\u00e9capitulatif</p>
         {panier.map((item) => (
           <div key={item.id} className="flex justify-between text-sm text-gray-600 mb-1">
             <span>{item.nom} x{item.quantite}</span>
@@ -149,7 +168,7 @@ export default function Commande() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Téléphone</label>
+          <label className="block text-sm font-medium mb-1">T\u00e9l\u00e9phone</label>
           <input
             type="tel"
             value={telephone}
@@ -186,7 +205,7 @@ export default function Commande() {
             onChange={(e) => setModeLivraison(e.target.value)}
             className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
           >
-            <option>Livraison à domicile</option>
+            <option>Livraison \u00e0 domicile</option>
             <option>Retrait en boutique</option>
           </select>
         </div>
